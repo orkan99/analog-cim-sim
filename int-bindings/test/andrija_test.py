@@ -104,7 +104,7 @@ def acs_fc(ifm, w_matrix, bias = None, cfg_file_path = "cpp/test/lib/configs/dig
                 ofm_t[i*m_crossbar : (i+1)*m_crossbar, k] += result
     return np.transpose(ofm_t) + bias
 
-"""
+
 class Test_Conv2d(unittest.TestCase):
 
     def test_one_kernel_with_one_dimension(self):
@@ -227,9 +227,9 @@ class Test_Conv2d(unittest.TestCase):
                     torch_conv2 = nn.functional.conv2d(torch.from_numpy(x), torch.from_numpy(kernels), padding=p, stride=s, dilation= 1).numpy()
                     np.testing.assert_array_equal(ofm, torch_conv2)
                 
-"""
+
 class Test_FC(unittest.TestCase):
-    """
+
     def test_one_small_input_no_bias(self):
         # One input smaller than n_matrix with no bias
         torch.manual_seed(0)
@@ -309,20 +309,20 @@ class Test_FC(unittest.TestCase):
         linear.bias.data = bias
         out_torch = linear(torch.from_numpy(x)).detach().numpy()
         np.testing.assert_array_equal(out, out_torch) 
-    """
+
     def test_many_big_inputs_with_bias(self):
         #Many (more than m_matrix) inputs larger than n_matrix with bias
         torch.manual_seed(0)
         input_f = 256
         output_f = 156
-        batch_size = 11 
-        x = np.arange(input_f*batch_size, dtype=np.float32)
+        batch_size = 1115 
+        x = np.ones(input_f*batch_size, dtype=np.float32)
         x = np.reshape(x, (batch_size, input_f))
-        w_matrix = torch.arange(input_f*output_f, dtype=torch.float32)
+        w_matrix = torch.ones(input_f*output_f, dtype=torch.float32)
         w_matrix = torch.reshape(w_matrix,(output_f,input_f))
         bias = torch.arange(output_f, dtype=torch.float32)*3
         
-        out = acs_fc(ifm = np.array(x, dtype=np.int32), w_matrix = np.array(w_matrix, dtype=np.int32), bias=np.array(bias, dtype=np.int32))
+        out = acs_fc(ifm = np.array(x, dtype=np.int64), w_matrix = np.array(w_matrix, dtype=np.int64), bias=np.array(bias, dtype=np.int64))
         
         linear = nn.Linear(input_f, output_f, bias=True)
         linear.weight.data = w_matrix

@@ -7,7 +7,7 @@
 ##############################################################################
 cmake_minimum_required(VERSION 3.15)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Code coverage
@@ -33,6 +33,9 @@ add_subdirectory(extern/json EXCLUDE_FROM_ALL)
 
 # Test options
 option(LIB_TESTS "Build lib tests." OFF)
+
+# Debug mode for matrix operations
+option(DEBUG_MODE "Enable debug output for matrix operations" OFF)
 
 # Build lib options
 option(BUILD_LIB_CB_EMU "Build emulater/callback interface." OFF)
@@ -94,6 +97,7 @@ if(BUILD_LIB_ACS_INT)
         src/mapping/tnn_mapper/tnn_iv.cpp
         src/mapping/tnn_mapper/tnn_v.cpp
         src/xbar/crossbar.cpp
+        src/xbar/read_disturb.cpp
         src/adc/adc.cpp
         src/adc/adcfactory.cpp
         src/adc/symadc.cpp
@@ -118,4 +122,9 @@ if(LIB_TESTS)
     message(STATUS "Enabling cpp tests.")
     enable_testing()
     add_subdirectory(test)
+endif()
+
+if(DEBUG_MODE)
+    add_definitions(-DDEBUG_MODE)
+    message(STATUS "Debug mode enabled - will print matrix operation details")
 endif()

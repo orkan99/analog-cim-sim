@@ -33,8 +33,8 @@ Mapper::Mapper(bool is_diff_weight_mapping) :
     gd_p_(CFG.M * CFG.SPLIT.size(), std::vector<int32_t>(CFG.N, 0)),
     gd_m_(CFG.M * CFG.SPLIT.size(), std::vector<int32_t>(CFG.N, 0)),
     shift_(CFG.SPLIT.size(), 0), sum_w_(CFG.M, 0),
-    ia_p_(CFG.M * CFG.SPLIT.size(), std::vector<float>(CFG.N, 0)),
-    ia_m_(CFG.M * CFG.SPLIT.size(), std::vector<float>(CFG.N, 0)),
+    ia_p_(CFG.M * CFG.SPLIT.size(), std::vector<float>(CFG.N, CFG.HRS)),
+    ia_m_(CFG.M * CFG.SPLIT.size(), std::vector<float>(CFG.N, CFG.HRS)),
     i_step_size_(CFG.SPLIT.size(), 0.0),
     adc_(ADCFactory::createADC(CFG.adc_type)) {
 
@@ -48,7 +48,7 @@ Mapper::Mapper(bool is_diff_weight_mapping) :
         lrs_var_ = std::normal_distribution<float>(0.0f, CFG.LRS_NOISE);
     }
 
-    if (CFG.is_int_mapping() || (CFG.m_mode == MappingMode::TNN_IV)) {
+    if (CFG.is_int_mapping(CFG.m_mode) || (CFG.m_mode == MappingMode::TNN_IV)) {
         int curr_w_bit = CFG.W_BIT;
         for (size_t i = 0; i < CFG.SPLIT.size(); ++i) {
             shift_[i] = curr_w_bit - CFG.SPLIT[i];
@@ -299,6 +299,56 @@ const std::vector<std::vector<float>> &Mapper::get_ia_p() const {
 
 const std::vector<std::vector<float>> &Mapper::get_ia_m() const {
     return ia_m_;
+}
+
+void Mapper::rd_update_conductance(std::shared_ptr<const ReadDisturb> rd_model,
+                                   const uint64_t read_num) {
+    // Update ia_p_
+    const std::vector<std::vector<uint64_t>> &cycles_p =
+        rd_model->get_cycles_p();
+
+    for (size_t i = 0; i < cycles_p.size(); i++) {
+        for (size_t j = 0; j < cycles_p[i].size(); j++) {
+            if (gd_p_[i][j] == 1) {
+                // Update the conductance value of LRS only
+                float LRS_scaling_factor =
+                    rd_model->calc_G0_scaling_factor(read_num, cycles_p[i][j]);
+                ia_p_[i][j] = CFG.LRS * LRS_scaling_factor;
+            }
+        }
+    }
+
+    if (!is_diff_weight_mapping_) {
+        // No need to update ia_m_ for non-diff weight mapping
+        return;
+    }
+
+    // Update ia_m_ as well
+    const std::vector<std::vector<uint64_t>> &cycles_m =
+        rd_model->get_cycles_m();
+    for (size_t i = 0; i < cycles_m.size(); i++) {
+        for (size_t j = 0; j < cycles_m[i].size(); j++) {
+            if (gd_m_[i][j] == 1) {
+                // Update the conductance value of LRS only
+                float LRS_scaling_factor =
+                    rd_model->calc_G0_scaling_factor(read_num, cycles_m[i][j]);
+                ia_m_[i][j] = CFG.LRS * LRS_scaling_factor;
+            }
+        }
+    }
+}
+
+// Check if the cells require a refresh due to the read disturb effect
+// Determined analytically (i.e., no cells are measured)
+bool Mapper::rd_check_refresh(std::shared_ptr<const ReadDisturb> rd_model,
+                              const uint64_t read_num,
+                              const uint64_t write_num) {
+    float tt = rd_model->calc_transition_time(write_num);
+    float t_stress = read_num * CFG.t_read;
+    if (t_stress >= CFG.read_disturb_mitigation_fp * tt) {
+        return true;
+    }
+    return false;
 }
 
 } // namespace nq
